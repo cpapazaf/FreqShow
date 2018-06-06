@@ -1,4 +1,18 @@
 FreqShow
 ========
 
-Raspberry Pi &amp; PiTFT-based RTL-SDR frequency scanning and display tool.  See installation and usage instructions in the guide at: https://learn.adafruit.com/freq-show-raspberry-pi-rtl-sdr-scanner/overview
+Using code from https://github.com/dswiston/pyFmRadio
+
+Test before running
+```
+rtl_fm -f 104.3e6 -M wbfm - | aplay -f S16_LE
+```
+
+Run
+```
+ENVIRONMENT=ubuntu python freqshow.py | aplay -f S16_LE
+```
+
+Not working perfectly yet
+
+

@@ -24,8 +24,10 @@
 # SOFTWARE.
 import numpy as np
 from rtlsdr import *
-
+import Queue
+import threading
 import freqshow
+from fm_demodulator import fm_demod, audio_play
 
 
 class FreqShowModel(object):
@@ -43,9 +45,19 @@ class FreqShowModel(object):
         self.set_max_intensity('AUTO')
         # Initialize RTL-SDR library.
         self.sdr = RtlSdr()
-        self.set_center_freq(90.3)
+        self.set_center_freq(104.3)
+        self.set_bandwidth(100)
         self.set_sample_rate(2.4)
         self.set_gain('AUTO')
+        # Data queues
+        self.data_queue = Queue.Queue([1])
+        self.audio_queue = Queue.Queue([1])
+
+        fm_demod_thread = threading.Thread(target=fm_demod, args=(self.data_queue, self.audio_queue))
+        fm_demod_thread.start()
+
+        audio_play_thread = threading.Thread(target=audio_play, args=(self.audio_queue, ))
+        audio_play_thread.start()
 
     def _clear_intensity(self):
         if self.min_auto_scale:
@@ -61,8 +73,17 @@ class FreqShowModel(object):
     def set_center_freq(self, freq_mhz):
         """Set tuner center frequency to provided megahertz value."""
         try:
-            self.sdr.set_center_freq(freq_mhz*1000000.0)
+            self.sdr.set_center_freq(freq_mhz * 1000000.0)
             self._clear_intensity()
+        except IOError:
+            # Error setting value, ignore it for now but in the future consider
+            # adding an error message dialog.
+            pass
+
+    def set_bandwidth(self, bandwidth):
+        """Set bandwidth to provided kilohertz value."""
+        try:
+            self.sdr.set_bandwidth(bandwidth * 1000.0)
         except IOError:
             # Error setting value, ignore it for now but in the future consider
             # adding an error message dialog.
@@ -73,7 +94,7 @@ class FreqShowModel(object):
         return self.sdr.get_sample_rate()/1000000.0
 
     def set_sample_rate(self, sample_rate_mhz):
-        """Set tuner sample rate to provided frequency in megahertz."""
+        """Set tuner sample rate to provided frequency in kilohertz."""
         try:
             self.sdr.set_sample_rate(sample_rate_mhz*1000000.0)
         except IOError:
@@ -156,9 +177,11 @@ class FreqShowModel(object):
         # Get width number of raw samples so the number of frequency bins is
         # the same as the display width.  Add two because there will be mean/DC
         # values in the results which are ignored.
-        samples = self.sdr.read_samples(freqshow.SDR_SAMPLE_SIZE)[0:self.width+2]
+        samples = self.sdr.read_samples(freqshow.SDR_SAMPLE_SIZE)
+        self.data_queue.put(np.array(samples, dtype=np.complex64))
+
         # Run an FFT and take the absolute value to get frequency magnitudes.
-        freqs = np.absolute(np.fft.fft(samples))
+        freqs = np.absolute(np.fft.fft(samples[0:self.width+2]))
         # Ignore the mean/DC values at the ends.
         freqs = freqs[1:-1]
         # Shift FFT result positions to put center frequency in center.
