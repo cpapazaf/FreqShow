@@ -33,12 +33,12 @@ import ui
 
 
 # Application configuration.
-SDR_SAMPLE_SIZE = 1024	# Number of samples to grab from the radio.  Should be
-						# larger than the maximum display width.
+SDR_SAMPLE_SIZE = 1024  # Number of samples to grab from the radio.  Should be
+                        # larger than the maximum display width.
 
-CLICK_DEBOUNCE  = 0.4	# Number of seconds to wait between clicks events. Set
-						# to a few hunded milliseconds to prevent accidental
-						# double clicks from hard screen presses.
+CLICK_DEBOUNCE  = 0.4   # Number of seconds to wait between clicks events. Set
+                        # to a few hunded milliseconds to prevent accidental
+                        # double clicks from hard screen presses.
 
 # Font size configuration.
 MAIN_FONT = 33
@@ -69,36 +69,47 @@ ui.Button.border_px    = 2
 
 
 if __name__ == '__main__':
-	# Initialize pygame and SDL to use the PiTFT display and touchscreen.
-	os.putenv('SDL_VIDEODRIVER', 'fbcon')
-	os.putenv('SDL_FBDEV'      , '/dev/fb1')
-	os.putenv('SDL_MOUSEDRV'   , 'TSLIB')
-	os.putenv('SDL_MOUSEDEV'   , '/dev/input/touchscreen')
-	pygame.display.init()
-	pygame.font.init()
-	pygame.mouse.set_visible(False)
-	# Get size of screen and create main rendering surface.
-	size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-	screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
-	# Display splash screen.
-	splash = pygame.image.load('freqshow_splash.png')
-	screen.fill(MAIN_BG)
-	screen.blit(splash, ui.align(splash.get_rect(), (0, 0, size[0], size[1])))
-	pygame.display.update()
-	splash_start = time.time()
-	# Create model and controller.
-	fsmodel = model.FreqShowModel(size[0], size[1])
-	fscontroller = controller.FreqShowController(fsmodel)
-	time.sleep(2.0)
-	# Main loop to process events and render current view.
-	lastclick = 0
-	while True:
-		# Process any events (only mouse events for now).
-		for event in pygame.event.get():
-			if event.type is pygame.MOUSEBUTTONDOWN \
-				and (time.time() - lastclick) >= CLICK_DEBOUNCE:
-				lastclick = time.time()
-				fscontroller.current().click(pygame.mouse.get_pos())
-		# Update and render the current view.
-		fscontroller.current().render(screen)
-		pygame.display.update()
+    if os.getenv('ENVIRONMENT', 'rpi') == 'ubuntu':
+        width = 700
+        height = 700
+        size = (width, height)
+        mouse_visible = True
+        screen_type = pygame.RESIZABLE
+    else:
+        # Get size of screen and create main rendering surface.
+        size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+        # Initialize pygame and SDL to use the PiTFT display and touchscreen.
+        os.putenv('SDL_VIDEODRIVER', 'fbcon')
+        os.putenv('SDL_FBDEV'      , '/dev/fb1')
+        os.putenv('SDL_MOUSEDRV'   , 'TSLIB')
+        os.putenv('SDL_MOUSEDEV'   , '/dev/input/touchscreen')
+        mouse_visible = False
+        screen_type = pygame.FULLSCREEN
+
+    pygame.display.init()
+    pygame.font.init()
+    pygame.mouse.set_visible(mouse_visible)
+
+    screen = pygame.display.set_mode(size, screen_type)
+    # Display splash screen.
+    splash = pygame.image.load('freqshow_splash.png')
+    screen.fill(MAIN_BG)
+    screen.blit(splash, ui.align(splash.get_rect(), (0, 0, size[0], size[1])))
+    pygame.display.update()
+    splash_start = time.time()
+    # Create model and controller.
+    fsmodel = model.FreqShowModel(size[0], size[1])
+    fscontroller = controller.FreqShowController(fsmodel)
+    time.sleep(2.0)
+    # Main loop to process events and render current view.
+    lastclick = 0
+    while True:
+        # Process any events (only mouse events for now).
+        for event in pygame.event.get():
+            if event.type is pygame.MOUSEBUTTONDOWN \
+                    and (time.time() - lastclick) >= CLICK_DEBOUNCE:
+                lastclick = time.time()
+                fscontroller.current().click(pygame.mouse.get_pos())
+        # Update and render the current view.
+        fscontroller.current().render(screen)
+        pygame.display.update()
